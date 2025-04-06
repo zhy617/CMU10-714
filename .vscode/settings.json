@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        // "./homework/hw0/src"
+    ]
+}

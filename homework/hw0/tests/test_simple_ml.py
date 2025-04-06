@@ -1,9 +1,15 @@
 import numpy as np
 import sys
+import os
 import numdifftools as nd
-sys.path.append("./src")
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+print("Project root:", project_root)
+sys.path.append(project_root)
+
+# sys.path.append("src")
 import mugrade
-from simple_ml import *
+from src.simple_ml import *
 try:
     from simple_ml_ext import *
 except:
@@ -16,8 +22,13 @@ def test_add():
     assert add(5,6) == 11
     assert add(3.2,1.0) == 4.2
     assert type(add(4., 4)) == float
+    # print("Testing add()")
+    # print("add(1,2) = ", add(1,2))
     np.testing.assert_allclose(add(np.array([1,2]), np.array([3,4])),
                                np.array([4,6]))
+
+# test_add()
+
 
 def submit_add():
     mugrade.submit(add(1,2))

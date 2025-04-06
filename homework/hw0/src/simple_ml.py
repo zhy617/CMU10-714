@@ -2,7 +2,7 @@ import struct
 import numpy as np
 import gzip
 try:
-    from simple_ml_ext import *
+    from homework.hw0.src import *
 except:
     pass
 
@@ -20,7 +20,7 @@ def add(x, y):
         Sum of x + y
     """
     ### BEGIN YOUR CODE
-    pass
+    return x + y
     ### END YOUR CODE
 
 
@@ -48,7 +48,20 @@ def parse_mnist(image_filename, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR CODE
-    pass
+    with gzip.open(image_filename, 'rb') as f:
+        magic, num, rows, cols = struct.unpack('>IIII', f.read(16))
+        # print(magic, num, rows, cols)
+        images = np.frombuffer(f.read(), dtype=np.uint8)
+        # print(images.shape)
+        images = images.reshape(num, rows * cols).astype(np.float32)
+        images = images / 255.0  # Normalize to [0, 1]
+
+    with gzip.open(label_filename, 'rb') as f:
+        magic, num = struct.unpack('>II', f.read(8))
+        labels = np.frombuffer(f.read(), dtype=np.uint8)
+        labels = labels.reshape(num)
+    
+    return images, labels
     ### END YOUR CODE
 
 
@@ -67,8 +80,30 @@ def softmax_loss(Z, y):
     Returns:
         Average softmax loss over the sample.
     """
+    
+    """
+    it takes 1min to run
+    """
     ### BEGIN YOUR CODE
-    pass
+    # num_classes = Z.shape[1]
+    # num_examples = Z.shape[0]
+    # print(num_classes, num_examples)
+    # # Z_exp = np.exp(Z - np.max(Z, axis=1, keepdims=True))  # for numerical stability
+    # Z_exp = np.exp(Z)
+    # Z_sum = np.sum(Z_exp, axis=1, keepdims=True)
+    # Z_log = np.log(Z_sum)
+    # # Z_log = np.clip(Z_log, -np.inf, np.inf)  # Avoid log(0)
+    # loss = np.sum(Z_log - Z[np.arange(num_examples), y]) / num_examples
+    # return loss
+    ### END YOUR CODE
+
+    """
+    it takes 1s to run
+    """
+    ### BEGIN YOUR CODE
+    loss = np.sum(np.log(np.sum(np.exp(Z), axis=1)) - Z[np.arange(Z.shape[0]), y])
+    loss /= Z.shape[0]
+    return loss
     ### END YOUR CODE
 
 
@@ -91,7 +126,16 @@ def softmax_regression_epoch(X, y, theta, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    for i in range(0, X.shape[0], batch):
+        X_batch = X[i:min(i + batch, X.shape[0])]
+        y_batch = y[i:min(i + batch, X.shape[0])]
+        Z = X_batch @ theta
+        # Z_exp = np.exp(Z - np.max(Z, axis=1, keepdims=True))  # for numerical stability
+        # Z_sum = np.sum(np.exp(Z), axis=1, keepdims=True)
+        Z_exp = np.exp(Z) / np.sum(np.exp(Z), axis=1, keepdims=True) - np.eye(Z.shape[1])[y_batch]
+        theta -= lr * (X_batch.T @ Z_exp) / X_batch.shape[0]
+    
+
     ### END YOUR CODE
 
 
