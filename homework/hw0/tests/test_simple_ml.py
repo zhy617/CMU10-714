@@ -11,7 +11,7 @@ sys.path.append(project_root)
 import mugrade
 from src.simple_ml import *
 try:
-    from simple_ml_ext import *
+    from src.simple_ml_ext import *
 except:
     pass
 

@@ -162,7 +162,14 @@ def nn_epoch(X, y, W1, W2, lr = 0.1, batch=100):
         None
     """
     ### BEGIN YOUR CODE
-    pass
+    for i in range(0, X.shape[0], batch):
+        X_batch = X[i:min(i + batch, X.shape[0])]
+        y_batch = y[i:min(i + batch, X.shape[0])]
+        Z1 = np.maximum(X_batch @ W1, 0)
+        G2 = np.exp(Z1 @ W2) / np.sum(np.exp(Z1 @ W2), axis=1, keepdims=True) - np.eye(W2.shape[1])[y_batch]
+        G1 = (G2 @ W2.T) * (Z1 > 0)
+        W2 -= lr * (Z1.T @ G2) / X_batch.shape[0]
+        W1 -= lr * (X_batch.T @ G1) / X_batch.shape[0]
     ### END YOUR CODE
 
 

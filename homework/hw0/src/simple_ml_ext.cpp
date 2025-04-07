@@ -5,6 +5,31 @@
 
 namespace py = pybind11;
 
+void single_matrix_mult(const float *A, const float *B, float *C,
+               size_t m, size_t n, size_t k)
+{
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < k; ++j) {
+            C[i * k + j] = 0;
+            for (size_t l = 0; l < n; ++l) {
+                C[i * k + j] += A[i * n + l] * B[l * k + j];
+            }
+        }
+    }
+}
+
+void first_transpose_matrix_mult(const float *A, const float *B, float *C,
+               size_t m, size_t n, size_t k)
+{
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < k; ++j) {
+            C[j * m + i] = 0;
+            for (size_t l = 0; l < n; ++l) {
+                C[j * m + i] += A[l * m + i] * B[l * k + j];
+            }
+        }
+    }
+}
 
 void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
 								  float *theta, size_t m, size_t n, size_t k,
@@ -33,7 +58,45 @@ void softmax_regression_epoch_cpp(const float *X, const unsigned char *y,
      */
 
     /// BEGIN YOUR CODE
+    float *Z = new float[batch * k];
+    float *grad = new float[n * k];
 
+    for(size_t i = 0; i < m; i += batch){
+        size_t batch_size = std::min(batch, m - i);
+        // Compute logits
+        single_matrix_mult(X + i * n, theta, Z, batch_size, n, k);
+
+        // Compute softmax
+        for(size_t j = 0; j < batch_size; ++j){
+            for(size_t l = 0; l < k; ++l){
+                Z[j * k + l] = exp(Z[j * k + l]);
+            }
+            float sum = 0;
+            for(size_t l = 0; l < k; ++l){
+                sum += Z[j * k + l];
+            }
+            for(size_t l = 0; l < k; ++l){
+                Z[j * k + l] /= sum;
+            }
+            for(size_t l = 0; l < k; ++l){
+                if(l == y[i + j]){
+                    Z[j * k + l] -= 1;
+                }
+            }
+        }
+
+        // Compute gradient
+        first_transpose_matrix_mult(X + i * n, Z, grad, n, batch_size, k);
+        for(size_t j = 0; j < n * k; ++j){
+            grad[j] /= batch_size;
+            grad[j] *= lr;
+        }
+
+        // Update theta
+        for(size_t j = 0; j < n * k; ++j){
+            theta[j] -= grad[j];
+        }
+    }
     /// END YOUR CODE
 }
 
