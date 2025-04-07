@@ -4,15 +4,16 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:\\Users\\13183\\anaconda3\\envs\\dls\\include",
-                "C:\\Users\\13183\\anaconda3\\envs\\dls\\Lib\\site-packages\\pybind11\\include"
+                "/home/mystle/anaconda3/envs/dsl/include",
+                "/home/mystle/anaconda3/envs/dsl/lib/python3.13/site-packages/pybind11/include",
+                "/home/mystle/anaconda3/envs/dsl/include/python3.13"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE"
             ],
-            "compilerPath": "C:\\Users\\13183\\Path\\x86_64-8.1.0-release-posix-seh-rt_v6-rev0\\mingw64\\bin\\gcc.exe",
+            "compilerPath": "/usr/bin/gcc",
             "cStandard": "c17",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "windows-gcc-x64"

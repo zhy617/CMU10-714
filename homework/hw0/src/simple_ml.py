@@ -1,8 +1,20 @@
 import struct
 import numpy as np
 import gzip
+import sys
+import os
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# print("Project root:", project_root)
+sys.path.append(project_root)
+
 try:
     from homework.hw0.src import *
+except:
+    pass
+
+try:
+    from src.simple_ml_ext import * # type: ignore
 except:
     pass
 
@@ -190,7 +202,7 @@ def train_softmax(X_tr, y_tr, X_te, y_te, epochs=10, lr=0.5, batch=100,
         if not cpp:
             softmax_regression_epoch(X_tr, y_tr, theta, lr=lr, batch=batch)
         else:
-            softmax_regression_epoch_cpp(X_tr, y_tr, theta, lr=lr, batch=batch)
+            softmax_regression_epoch_cpp(X_tr, y_tr, theta, lr=lr, batch=batch) # type: ignore
         train_loss, train_err = loss_err(X_tr @ theta, y_tr)
         test_loss, test_err = loss_err(X_te @ theta, y_te)
         print("|  {:>4} |    {:.5f} |   {:.5f} |   {:.5f} |  {:.5f} |"\
