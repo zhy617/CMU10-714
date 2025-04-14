@@ -5,9 +5,11 @@ import gzip
 import numpy as np
 
 import sys
-
-sys.path.append("python/")
-import needle as ndl
+import os
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+print("Project root:", project_root)
+sys.path.append(project_root)
+import python.needle as ndl
 
 
 def parse_mnist(image_filesname, label_filename):
@@ -33,7 +35,20 @@ def parse_mnist(image_filesname, label_filename):
                 for MNIST will contain the values 0-9.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    with gzip.open(image_filesname, 'rb') as f:
+        magic, num, rows, cols = struct.unpack('>IIII', f.read(16))
+        # print(magic, num, rows, cols)
+        images = np.frombuffer(f.read(), dtype=np.uint8)
+        # print(images.shape)
+        images = images.reshape(num, rows * cols).astype(np.float32)
+        images = images / 255.0  # Normalize to [0, 1]
+
+    with gzip.open(label_filename, 'rb') as f:
+        magic, num = struct.unpack('>II', f.read(8))
+        labels = np.frombuffer(f.read(), dtype=np.uint8)
+        labels = labels.reshape(num)
+    
+    return images, labels
     ### END YOUR SOLUTION
 
 
@@ -54,7 +69,9 @@ def softmax_loss(Z, y_one_hot):
         Average softmax loss over the sample. (ndl.Tensor[np.float32])
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    loss = np.sum(np.log(np.sum(np.exp(Z), axis=1)) - Z[np.arange(Z.shape[0]), y_one_hot.argmax(axis=1)])
+    loss /= Z.shape[0]
+    return loss
     ### END YOUR SOLUTION
 
 

@@ -15,7 +15,7 @@ TENSOR_COUNTER = 0
 # as the backend for our computations, this line will change in later homeworks
 
 import numpy as array_api
-NDArray = numpy.ndarray
+NDArray = array_api.ndarray
 
 
 class Op:

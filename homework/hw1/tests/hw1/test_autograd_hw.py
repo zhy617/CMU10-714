@@ -281,6 +281,8 @@ def test_negate_forward():
 
 
 def test_transpose_forward():
+    # x = ndl.transpose(ndl.Tensor([[[1.95]], [[2.7]], [[3.75]]]), axes=(1, 2))
+    # print("fuck", x.numpy())
     np.testing.assert_allclose(
         ndl.transpose(ndl.Tensor([[[1.95]], [[2.7]], [[3.75]]]), axes=(1, 2)).numpy(),
         np.array([[[1.95]], [[2.7]], [[3.75]]]),
