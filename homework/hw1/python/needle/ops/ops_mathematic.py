@@ -207,17 +207,16 @@ class BroadcastTo(TensorOp):
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
+        """notice that we can use one summation to get the same result"""
         ### BEGIN YOUR SOLUTION
         # return BroadcastTo(self.shape)(out_grad)
         lhs_shape = node.inputs[0].shape
-        grad_tmp = summation(out_grad, axes=tuple(range(len(out_grad.shape) - len(lhs_shape))))
-        axes_to_sum = []
+        # grad_tmp = summation(out_grad, axes=tuple(range(len(out_grad.shape) - len(lhs_shape))))
+        axes_to_sum = list(array_api.arange(len(out_grad.shape) - len(lhs_shape)))
         for i in range(len(lhs_shape)):
             if lhs_shape[-1-i] != self.shape[-1-i]:
-                axes_to_sum.append(len(lhs_shape) - 1 - i)
-        if len(axes_to_sum) > 0:
-            grad_tmp = summation(grad_tmp, axes=tuple(axes_to_sum))
-        return reshape(grad_tmp, lhs_shape)
+                axes_to_sum.append(len(out_grad.shape) - 1 - i)
+        return reshape(summation(out_grad, axes=tuple(axes_to_sum)), lhs_shape)
         ### END YOUR SOLUTION
 
 
@@ -231,17 +230,23 @@ class Summation(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
+        if self.axes is None:
+            self.axes = tuple(range(len(a.shape)))
+        elif isinstance(self.axes, int):
+            self.axes = (self.axes,)
         return array_api.sum(a, axis=self.axes, keepdims=False)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        tmp_shape = list(node.inputs[0].shape)
+        new_shape = list(node.inputs[0].shape)
+        if self.axes is None:
+            self.axes = tuple(range(len(new_shape)))
+        elif isinstance(self.axes, int):
+            self.axes = (self.axes,)
         for i in self.axes:
-            tmp_shape[i] = 1
-        # print("tmp_shape", tmp_shape)
-        # print("out_grad", out_grad.shape)
-        return broadcast_to(reshape(out_grad, tmp_shape), node.inputs[0].shape)
+            new_shape[i] = 1
+        return broadcast_to(reshape(out_grad, new_shape), node.inputs[0].shape)
         ### END YOUR SOLUTION
 
 
@@ -265,9 +270,6 @@ class MatMul(TensorOp):
             grad_lhs = summation(grad_lhs, axes=tuple(range(len(grad_lhs.shape) - len(lhs.shape))))
         if len(grad_rhs.shape) > len(rhs.shape):
             grad_rhs = summation(grad_rhs, axes=tuple(range(len(grad_rhs.shape) - len(rhs.shape))))
-        # if len(lhs.shape) == 4 and len(rhs.shape) == 2:
-        #     print ("lhs", lhs.shape, "rhs", rhs.shape)
-        #     print("grad_lhs", grad_lhs.shape, "grad_rhs", grad_rhs.shape)
         return grad_lhs, grad_rhs
         ### END YOUR SOLUTION
 
@@ -333,9 +335,14 @@ class ReLU(TensorOp):
         return array_api.maximum(a, 0)
         ### END YOUR SOLUTION
 
-    def gradient(self, out_grad, node):
+    def gradient(self, out_grad: Tensor, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        inp = node.realize_cached_data().copy()
+        # print("inp", inp)
+        inp[inp > 0] = 1.0
+        # print("inp", inp)
+        # return NotImplementedError("Please implement ReLU gradient")
+        return out_grad * Tensor(inp),
         ### END YOUR SOLUTION
 
 

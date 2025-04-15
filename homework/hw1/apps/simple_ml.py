@@ -9,7 +9,10 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 print("Project root:", project_root)
 sys.path.append(project_root)
-import python.needle as ndl
+
+# notice that we can not import python.needle
+# because it can cause fucking unknown error
+import needle as ndl
 
 
 def parse_mnist(image_filesname, label_filename):
@@ -49,10 +52,12 @@ def parse_mnist(image_filesname, label_filename):
         labels = labels.reshape(num)
     
     return images, labels
+
+    # return NotImplementedError("Please implement parse_mnist")
     ### END YOUR SOLUTION
 
 
-def softmax_loss(Z, y_one_hot):
+def softmax_loss(Z:ndl.Tensor, y_one_hot:ndl.Tensor):
     """Return softmax loss.  Note that for the purposes of this assignment,
     you don't need to worry about "nicely" scaling the numerical properties
     of the log-sum-exp computation, but can just compute this directly.
@@ -69,9 +74,12 @@ def softmax_loss(Z, y_one_hot):
         Average softmax loss over the sample. (ndl.Tensor[np.float32])
     """
     ### BEGIN YOUR SOLUTION
-    loss = np.sum(np.log(np.sum(np.exp(Z), axis=1)) - Z[np.arange(Z.shape[0]), y_one_hot.argmax(axis=1)])
+    loss = ndl.summation(ndl.log(ndl.summation(ndl.exp(Z), axes=1)) - ndl.summation(Z * y_one_hot, axes=1))
+    # print("losssssssssssssssssssssssssss", loss.shape)
     loss /= Z.shape[0]
     return loss
+    # return (ndl.log(ndl.exp(Z).sum((1,))).sum() - (y_one_hot * Z).sum()) / Z.shape[0]
+    return NotImplementedError("Please implement softmax_loss")
     ### END YOUR SOLUTION
 
 
@@ -100,7 +108,32 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
     """
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    # raise NotImplementedError()
+    # print(X.shape[0])
+    for i in range(0, X.shape[0], batch):
+        X_batch:ndl.Tensor = ndl.Tensor(X[i:min(i + batch, X.shape[0])])
+        y_batch:ndl.NDArray = y[i:min(i + batch, X.shape[0])]
+        y_one_hot = ndl.array_api.zeros((X_batch.shape[0], W2.shape[1]))
+        y_one_hot[ndl.array_api.arange(y_batch.shape[0]), y_batch] = 1
+        y_one_hot = ndl.Tensor(y_one_hot)
+        # print(y)
+        # print(y_one_hot)
+        Z = ndl.relu(X_batch @ W1) @ W2
+        loss:ndl.Tensor = softmax_loss(Z, y_one_hot)
+        # print("loss shapeeeee", loss.shape)
+        # print("W1 shape", W1.shape)
+        # print("W2 shape", W2.shape)
+        loss.backward()
+        # print(W1.realize_cached_data())
+        # print(W1.grad.realize_cached_data())
+        W1 = ndl.Tensor(W1.realize_cached_data() - lr * W1.grad.realize_cached_data())
+        W2 = ndl.Tensor(W2.realize_cached_data() - lr * W2.grad.realize_cached_data())
+        # Z1 = np.maximum(X_batch @ W1, 0)
+        # G2 = np.exp(Z1 @ W2) / np.sum(np.exp(Z1 @ W2), axis=1, keepdims=True) - np.eye(W2.shape[1])[y_batch]
+        # G1 = (G2 @ W2.T) * (Z1 > 0)
+        # W2 -= lr * (Z1.T @ G2) / X_batch.shape[0]
+        # W1 -= lr * (X_batch.T @ G1) / X_batch.shape[0]
+    return W1, W2
     ### END YOUR SOLUTION
 
 

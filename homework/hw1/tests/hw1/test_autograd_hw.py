@@ -1,13 +1,23 @@
 import sys
-
+import os
+# project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+# print("Project root:", project_root)
+# sys.path.append(project_root)
+# sys.path.append("./")
 sys.path.append("./python")
 sys.path.append("./apps")
+# from apps.simple_ml import softmax_loss
 from simple_ml import *
+import needle as ndl
+
+# import needle as ndl
+# from simple_ml import *
+
 import numdifftools as nd
 
 import numpy as np
 import mugrade
-import needle as ndl
+
 
 
 ##############################################################################
