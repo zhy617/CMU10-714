@@ -60,12 +60,30 @@ class DataLoader:
 
     def __iter__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if self.shuffle:
+            self.ordering = np.array_split(np.random.permutation(len(self.dataset)),
+                                             range(self.batch_size, len(self.dataset), self.batch_size))
         ### END YOUR SOLUTION
         return self
 
     def __next__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if self.ordering == []:
+            raise StopIteration
+        indices = self.ordering.pop(0)
+        # print("indices", indices)
+        batch = []
+        for i in range(len(self.dataset[0])):
+            batch.append([])
+        for i in indices:
+            data = self.dataset[i]
+            for j in range(len(data)):
+                batch[j].append(data[j])
+        for i in range(len(batch)):
+            batch[i] = Tensor(np.array(batch[i]))
+        
+        # print(batch[0].shape)
+        # raise StopIteration
+        return batch
         ### END YOUR SOLUTION
 

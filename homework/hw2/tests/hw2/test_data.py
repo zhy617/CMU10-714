@@ -10752,6 +10752,7 @@ def test_mnist_dataset():
         "data/train-images-idx3-ubyte.gz",
         "data/train-labels-idx1-ubyte.gz",
         transforms=tforms,
+        flag = True,
     )
 
     sample_norms = np.array(
@@ -10849,6 +10850,10 @@ def test_dataloader_mnist():
     )
 
     for i, batch in enumerate(mnist_train_dataloader):
+        # print(type(batch))
+        # print(len(batch))
+        # print(type(batch[0]))
+        # print(type(batch[1]))
         batch_x, batch_y = batch[0].numpy(), batch[1].numpy()
         truth = mnist_train_dataset[i * batch_size : (i + 1) * batch_size]
         truth_x = truth[0] if truth[0].shape[0] > 1 else truth[0].reshape(-1)
