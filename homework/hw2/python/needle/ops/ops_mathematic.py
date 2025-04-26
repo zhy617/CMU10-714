@@ -234,7 +234,7 @@ class Summation(TensorOp):
             self.axes = tuple(range(len(a.shape)))
         elif isinstance(self.axes, int):
             self.axes = (self.axes,)
-        return array_api.sum(a, axis=self.axes, keepdims=False)
+        return array_api.sum(a, axis=self.axes, keepdims=False, dtype=a.dtype)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -332,7 +332,10 @@ def exp(a):
 class ReLU(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.maximum(a, 0)
+        if a.dtype == "float32":
+            return array_api.maximum(a, 0.)
+        print(a.dtype)
+        raise ValueError("ReLU only supports float32 dtype")
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad: Tensor, node):

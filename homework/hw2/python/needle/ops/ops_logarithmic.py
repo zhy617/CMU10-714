@@ -19,7 +19,6 @@ class LogSoftmax(TensorOp):
         # print(array_api.sum(exp, axis=1, keepdims=True))
         # return array_api.log(exp / array_api.sum(exp, axis=1, keepdims=True))
     
-
         ### stable
         self.maxn = array_api.max(Z, axis=1, keepdims=True)
         maxn_shrink = array_api.max(Z, axis=1, keepdims=True)
@@ -30,7 +29,7 @@ class LogSoftmax(TensorOp):
         ### END YOUR SOLUTION
 
     # what the hell I can't do it correctly
-    # ohohoh!!!! I know
+    # ohohoh fuck you fuck you!!!! I know
     # in the process it go through a broadcast,
     # so it need to sum the out_grad
     def gradient(self, out_grad, node):

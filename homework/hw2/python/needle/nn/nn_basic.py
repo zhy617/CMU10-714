@@ -109,6 +109,8 @@ class Linear(Module):
         ### END YOUR SOLUTION
 
     def forward(self, X: Tensor) -> Tensor:
+        # print("LINEAR", X.dtype)
+        # assert X.dtype == "float32"
         ### BEGIN YOUR SOLUTION
         if self.bias is not None:
             shape = (X.shape[0], self.out_features)
@@ -132,6 +134,7 @@ class Flatten(Module):
 class ReLU(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        # print("RELU", x.dtype)
         return ops.relu(x)
         ### END YOUR SOLUTION
 
@@ -142,6 +145,7 @@ class Sequential(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        # print("SEQUENTIAL", x.dtype)
         for module in self.modules:
             x = module(x)
         return x
@@ -181,10 +185,15 @@ class BatchNorm1d(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        mean: Tensor = ops.summation(x, axes=0) / x.shape[0]
+        # print("BATCHNORM", x.dtype)
+        batch_size = np.float32(x.shape[0])
+        mean: Tensor = ops.summation(x, axes=0) 
+        # print("fuck", mean.dtype)
+        # print("fuck", x.dtype)
+        mean = mean / batch_size
         x_minus_mean = (x - mean.broadcast_to(x.shape))
-        var: Tensor = ops.summation(x_minus_mean ** 2, axes=0) / x.shape[0]
-
+        var: Tensor = ops.summation(x_minus_mean ** 2, axes=0) / batch_size
+        # print("mean.dtype",mean.dtype)
         # NOTE: eval mode doesn't need momentum
         if self.training == False:
             x_minus_mean = (x - self.running_mean.broadcast_to(x.shape))
@@ -193,9 +202,9 @@ class BatchNorm1d(Module):
         else:
             # NOTE: when encountering the iterative variable,
             # you should use .data or .detach() to disconnect the graph
-            self.running_mean.data = ((1 - self.momentum) * self.running_mean 
+            self.running_mean.data = ((1.0 - self.momentum) * self.running_mean 
                                  + mean * self.momentum)
-            self.running_var.data = ((1 - self.momentum) * self.running_var
+            self.running_var.data = ((1.0 - self.momentum) * self.running_var
                          + var * self.momentum)
             x_std = ((var + self.eps)**0.5).broadcast_to(x.shape)
             x = x_minus_mean / x_std
@@ -226,10 +235,13 @@ class LayerNorm1d(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        # print("LAYERNORM", x.dtype)
         # print(x)
-        mean: Tensor = ops.summation(x, axes=1) / x.shape[1]
+        feature_size = np.float32(x.shape[1])
+        # print(x)
+        mean: Tensor = ops.summation(x, axes=1) / feature_size
         mean = mean.reshape((x.shape[0], 1)).broadcast_to(x.shape)
-        var: Tensor = ops.summation((x-mean) ** 2, axes=1) / x.shape[1]
+        var: Tensor = ops.summation((x-mean) ** 2, axes=1) / feature_size
         var = var.reshape((x.shape[0], 1)).broadcast_to(x.shape)
         # print(mean)
         # print(var)
@@ -248,8 +260,10 @@ class Dropout(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        # print("DROPOUT", x.dtype)
         if self.training:
-            mask = init.randb(*(x.shape), p=(1-self.p), device=x.device, dtype="bool") / (1 - self.p)
+            # NOTE: make sure that all Tensor is the same dtype
+            mask = init.randb(*(x.shape), p=(1-self.p), device=x.device, dtype=x.dtype) / (1 - self.p)
             x = x * mask
         return x
         ### END YOUR SOLUTION
@@ -262,5 +276,6 @@ class Residual(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
+        # print("RESIDUAL", x.dtype)
         return self.fn(x) + x
         ### END YOUR SOLUTION

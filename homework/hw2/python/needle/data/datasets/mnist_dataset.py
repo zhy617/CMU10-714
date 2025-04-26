@@ -18,7 +18,7 @@ class MNISTDataset(Dataset):
             # print(magic, num, rows, cols)
             images = np.frombuffer(f.read(), dtype=np.uint8)
             # print(images.shape)
-            images = images.reshape(num, rows, cols, 1).astype(np.float32)
+            images = images.reshape(num, rows * cols).astype(np.float32)
             images = images / 255.0  # Normalize to [0, 1]
 
         with gzip.open(label_filename, 'rb') as f:
@@ -41,7 +41,9 @@ class MNISTDataset(Dataset):
         image = self.images[index]
         if self.transforms is not None:
             for fn in self.transforms:
+                image = np.reshape(image, (28, 28, -1))
                 image = fn(image)
+                image = np.reshape(image, (-1, 28 * 28))
         return image, self.labels[index]
         ### END YOUR SOLUTION
 
