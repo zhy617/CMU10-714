@@ -1,6 +1,7 @@
 """Optimization module"""
 import needle as ndl
 import numpy as np
+# import needle.init as init
 
 
 class Optimizer:
@@ -8,7 +9,8 @@ class Optimizer:
         self.params = params
 
     def step(self):
-        raise NotImplementedError()
+        for p in self.params:
+            p.data = p.data - self.lr * p.grad
 
     def reset_grad(self):
         for p in self.params:
@@ -25,7 +27,18 @@ class SGD(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        for p in self.params:
+            if p not in self.u:
+                self.u[p] = ndl.init.zeros_like(p)
+            grad = p.grad
+
+            # NOTE: lambda / 2 * p.data * p.data is L2 decay
+            # but the grad is lambda * p.data
+            if self.weight_decay != 0:
+                grad = p.grad + self.weight_decay * p.data
+            self.u[p] = (self.momentum * self.u[p] 
+                         - (1 - self.momentum) * grad.data)
+            p.data = p.data + self.lr * self.u[p]
         ### END YOUR SOLUTION
 
     def clip_grad_norm(self, max_norm=0.25):
@@ -60,5 +73,43 @@ class Adam(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.t += 1
+
+        for p in self.params:
+            if p not in self.m:
+                self.m[p] = ndl.init.zeros_like(p)
+                self.v[p] = ndl.init.zeros_like(p)
+            if p.grad is None:
+                continue
+            grad = p.grad
+            if self.weight_decay != 0:
+                grad = grad.data + self.weight_decay * p.data
+            self.m[p] = (self.beta1 * self.m[p].data
+                         + (1 - self.beta1) * grad.data)
+            self.v[p] = (self.beta2 * self.v[p].data
+                         + (1 - self.beta2) * (grad.data ** 2))
+            
+            m_hat = self.m[p].data / (1 - self.beta1 ** self.t)
+            v_hat = self.v[p].data / (1 - self.beta2 ** self.t)
+            p.data = (p.data - self.lr * m_hat.data / (v_hat.data ** 0.5 + self.eps))
+        
+        # self.t += 1
+        # for i, param in enumerate(self.params):
+        #     if i not in self.m:
+        #         self.m[i] = ndl.init.zeros(*param.shape)
+        #         self.v[i] = ndl.init.zeros(*param.shape)
+            
+        #     # NOTE: param.grad maybe None
+        #     if param.grad is None:
+        #         continue
+        #     grad_data = ndl.Tensor(param.grad.numpy(), dtype='float32').data \
+        #          + param.data * self.weight_decay
+        #     self.m[i] = self.beta1 * self.m[i] \
+        #         + (1 - self.beta1) * grad_data
+        #     self.v[i] = self.beta2 * self.v[i] \
+        #         + (1 - self.beta2) * grad_data**2
+        #     # NOTE: bias correction
+        #     u_hat = (self.m[i]) / (1 - self.beta1 ** self.t)
+        #     v_hat = (self.v[i]) / (1 - self.beta2 ** self.t)
+        #     param.data = param.data - self.lr * u_hat / (v_hat ** 0.5 + self.eps)
         ### END YOUR SOLUTION

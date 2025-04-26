@@ -90,14 +90,19 @@ class Linear(Module):
         ### BEGIN YOUR SOLUTION
         self.device = device
         self.dtype = dtype
-        self.weight = init.kaiming_uniform(
-            self.in_features, self.out_features, device=self.device, dtype=self.dtype
-        )
-        print(self.weight.shape)
+        self.weight = Parameter(init.kaiming_uniform(
+            self.in_features, self.out_features, 
+            device=self.device, dtype=self.dtype,
+            requires_grad=True
+        ))
+        # print(self.weight.shape)
         if bias:
-            self.bias:Tensor = (init.kaiming_uniform(
-                self.out_features, 1, device=self.device, dtype=self.dtype
-            )).transpose()
+            self.bias = Parameter((init.kaiming_uniform(
+                self.out_features, 1, 
+                device=self.device, dtype=self.dtype,
+                requires_grad=True
+            )).transpose())
+            # self.bias = Parameter(self.bias.realize_cached_data(),dtype=dtype)
         else:
             self.bias = None
 
@@ -160,8 +165,16 @@ class BatchNorm1d(Module):
         self.eps = eps
         self.momentum = momentum
         ### BEGIN YOUR SOLUTION
-        self.weight = init.ones(self.dim, device=device, dtype=dtype)
-        self.bias = init.zeros(self.dim, device=device, dtype=dtype)
+        self.weight = Parameter(init.ones(self.dim, 
+                                          device=device, 
+                                          dtype=dtype,
+                                          requires_grad=True))
+        
+        self.bias = Parameter(init.zeros(self.dim, 
+                                         device=device, 
+                                         dtype=dtype,
+                                         requires_grad=True))
+        
         self.running_mean:Tensor = init.zeros(self.dim, device=device, dtype=dtype)
         self.running_var:Tensor = init.ones(self.dim, device=device, dtype=dtype)
         ### END YOUR SOLUTION
@@ -169,27 +182,26 @@ class BatchNorm1d(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
         mean: Tensor = ops.summation(x, axes=0) / x.shape[0]
-        self.running_mean = ((1 - self.momentum) * self.running_mean 
-                             + mean * self.momentum)
-        mean = mean.reshape((1, self.dim)).broadcast_to(x.shape)
+        x_minus_mean = (x - mean.broadcast_to(x.shape))
+        var: Tensor = ops.summation(x_minus_mean ** 2, axes=0) / x.shape[0]
 
-        var: Tensor = ops.summation((x-mean) ** 2, axes=0) / x.shape[0]
-        self.running_var = ((1 - self.momentum) * self.running_var 
-                            + var * self.momentum)
-        var = var.reshape((1, self.dim)).broadcast_to(x.shape)
-
+        # NOTE: eval mode doesn't need momentum
         if self.training == False:
-            running_mean = (self.running_mean.reshape((1, self.dim))
-                            .broadcast_to(x.shape))
-
-            running_var = (self.running_var.reshape((1, self.dim))
-                           .broadcast_to(x.shape))
-            x = (x - running_mean) / ((running_var + self.eps)**0.5)
+            x_minus_mean = (x - self.running_mean.broadcast_to(x.shape))
+            x_std = ((self.running_var + self.eps)**0.5).broadcast_to(x.shape)
+            x = x_minus_mean / x_std
         else:
-            x = (x - mean) / ((var + self.eps)**0.5)
+            # NOTE: when encountering the iterative variable,
+            # you should use .data or .detach() to disconnect the graph
+            self.running_mean.data = ((1 - self.momentum) * self.running_mean 
+                                 + mean * self.momentum)
+            self.running_var.data = ((1 - self.momentum) * self.running_var
+                         + var * self.momentum)
+            x_std = ((var + self.eps)**0.5).broadcast_to(x.shape)
+            x = x_minus_mean / x_std
         
-        weight = self.weight.reshape((1, self.dim)).broadcast_to(x.shape)
-        bias = self.bias.reshape((1, self.dim)).broadcast_to(x.shape)
+        weight = self.weight.broadcast_to(x.shape)
+        bias = self.bias.broadcast_to(x.shape)
         return x * weight + bias
         ### END YOUR SOLUTION
 
@@ -201,8 +213,15 @@ class LayerNorm1d(Module):
         self.dim = dim
         self.eps = eps
         ### BEGIN YOUR SOLUTION
-        self.weight = init.ones(dim, device=device, dtype=dtype)
-        self.bias = init.zeros(dim, device=device, dtype=dtype)
+        self.weight = Parameter(init.ones(dim, 
+                                          device=device, 
+                                          dtype=dtype,
+                                          requires_grad=True))
+
+        self.bias = Parameter(init.zeros(dim, 
+                                         device=device, 
+                                         dtype=dtype,
+                                         requires_grad=True))
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:

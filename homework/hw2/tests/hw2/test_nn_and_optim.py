@@ -202,7 +202,8 @@ def learn_model_1d(feature_size, nclasses, _model, optimizer, epochs=1, **kwargs
 
     loss_func = nn.SoftmaxLoss()
     opt = optimizer(model.parameters(), **kwargs)
-
+    # print(ndl.nn.nn_basic._unpack_params(model._children()[0].__dict__, 1))
+    # print(model._children())
     for _ in range(epochs):
         for i, (X0, y0) in enumerate(
             zip(np.array_split(X, m // batch), np.array_split(y, m // batch))
