@@ -97,11 +97,15 @@ class Linear(Module):
         ))
         # print(self.weight.shape)
         if bias:
-            self.bias = Parameter((init.kaiming_uniform(
+            # NOTE: notice that we must make sure
+            # that the parameters' type is Parameter
+            # rather than Tensor
+            self.bias = Parameter(((init.kaiming_uniform(
                 self.out_features, 1, 
                 device=self.device, dtype=self.dtype,
                 requires_grad=True
-            )).transpose())
+            ))).transpose())
+            # print(type(self.bias))
             # self.bias = Parameter(self.bias.realize_cached_data(),dtype=dtype)
         else:
             self.bias = None

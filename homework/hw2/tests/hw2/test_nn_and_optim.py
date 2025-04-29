@@ -380,7 +380,6 @@ def residual_block_num_params(dim, hidden_dim, norm):
 def residual_block_forward(dim, hidden_dim, norm, drop_prob):
     np.random.seed(2)
     input_tensor = ndl.Tensor(np.random.randn(1, dim), dtype=np.float32)
-    print("fuckfuck", input_tensor.dtype)
     output_tensor = ResidualBlock(dim, hidden_dim, norm, drop_prob)(input_tensor)
     return output_tensor.numpy()
 

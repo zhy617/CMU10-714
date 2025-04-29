@@ -41,6 +41,15 @@ class SGD(Optimizer):
             p.data = p.data + self.lr * self.u[p]
         ### END YOUR SOLUTION
 
+        # ### BEGIN YOUR SOLUTION
+        # for theta in self.params:
+        #     if theta not in self.u:
+        #         self.u[theta]= ndl.init.zeros_like(theta.data)
+        #     grad = theta.grad.data + self.weight_decay * theta.data
+        #     self.u[theta]= self.momentum * self.u[theta]+(1- self.momentum)* grad
+        #     theta.data -= self.lr * self.u[theta]
+        # ### END YOUR SOLUTION
+
     def clip_grad_norm(self, max_norm=0.25):
         """
         Clips gradient norm of parameters.

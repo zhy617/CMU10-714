@@ -29,8 +29,8 @@ class MNISTDataset(Dataset):
         self.images:np.ndarray = images
 
         # TestOnly
-        if flag:
-            print(self.images.shape)
+        # if flag:
+        #     print(self.images.shape)
 
         self.labels:np.ndarray = labels
         self.transforms = transforms

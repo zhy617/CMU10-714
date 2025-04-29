@@ -334,7 +334,7 @@ class ReLU(TensorOp):
         ### BEGIN YOUR SOLUTION
         if a.dtype == "float32":
             return array_api.maximum(a, 0.)
-        print(a.dtype)
+        # print(a.dtype)
         raise ValueError("ReLU only supports float32 dtype")
         ### END YOUR SOLUTION
 
