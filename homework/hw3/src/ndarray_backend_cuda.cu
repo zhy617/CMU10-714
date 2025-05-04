@@ -10,8 +10,11 @@ namespace needle {
 namespace cuda {
 
 #define BASE_THREAD_NUM 256
+#define BASE_BlOCK_X 16
+#define BASE_BLOCK_Y 16
 
 #define TILE 4
+#define BLOCK_TILE 64
 typedef float scalar_t;
 const size_t ELEM_SIZE = sizeof(scalar_t);
 
@@ -40,6 +43,17 @@ CudaDims CudaOneDim(size_t size) {
   size_t num_blocks = (size + BASE_THREAD_NUM - 1) / BASE_THREAD_NUM;
   dim.block = dim3(BASE_THREAD_NUM, 1, 1);
   dim.grid = dim3(num_blocks, 1, 1);
+  return dim;
+}
+
+CudaDims CudaTwoDim(size_t rows, size_t cols) {
+  /**
+   * Utility function to get cuda dimensions for 2D call
+   */
+  CudaDims dim;
+  dim.block = dim3(BASE_BlOCK_X, BASE_BLOCK_Y, 1);
+  dim.grid = dim3((rows + BASE_BlOCK_X - 1) / BASE_BlOCK_X,
+                  (cols + BASE_BLOCK_Y - 1) / BASE_BLOCK_Y, 1);
   return dim;
 }
 
@@ -606,6 +620,78 @@ void EwiseTanh(const CudaArray& a, CudaArray* out) {
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
 
+#define L BLOCK_TILE
+#define S BLOCK_TILE
+#define V TILE
+
+__global__ void MatmulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out, uint32_t M, uint32_t N,
+                   uint32_t P) {
+  /**
+   * The CUDA kernel for the matmul operation.  This should effectively map a single entry in the 
+   * non-compact input a, to the corresponding item (at location gid) in the compact array out.
+   * 
+   * Args:
+   *   a: CUDA pointer to a array
+   *   b: CUDA point to b array
+   *   out: CUDA point to out array
+   *   M: rows of a / out
+   *   N: columns of a / rows of b
+   *   P: columns of b / out
+   */
+  
+  /// BEGIN SOLUTION
+  
+  // S: the step size of N dimension
+  // L: the step size of M dimension
+  // 
+
+  __shared__ float sA[L][S], sB[S][L];
+  float c[V][V] = {0.};
+  float a_slice[V], b_slice[V];
+  int xblock = blockIdx.x;
+  int yblock = blockIdx.y;
+
+  for(int ko=0; ko < N; ko += S) {
+    __syncthreads();// 
+    // Load A and B tiles into shared memory
+    int nthreads = blockDim.x * blockDim.y;
+    int tid = threadIdx.x * blockDim.y + threadIdx.y;
+    for(int j = 0; j < (L*S + nthreads-1)/nthreads; j++){
+      int y = (j * nthreads + tid) / L;
+      int x = (j * nthreads + tid) % L;
+      int Aidx = (xblock * L + x) * N + ko + y;
+      sA[x][y] = (xblock * L + x < M && ko + y < N) ? a[Aidx] : 0.0f;
+      int Bidx = (ko + y) * P + (yblock * L + x);
+      sB[y][x] = (ko + y < N && yblock * L + x < P) ? b[Bidx] : 0.0f;
+    }
+    __syncthreads();
+
+    // Compute the product of sA and sB tiles
+    for(int ki = 0; ki < S; ki++) {
+      for(int i = 0; i < V; i++) {
+        a_slice[i] = sA[threadIdx.x * V + i][ki];
+        b_slice[i] = sB[ki][threadIdx.y * V + i];
+      }
+
+      for(int x = 0; x < V; x++) {
+        for(int y = 0; y < V; y++) {
+          c[x][y] += a_slice[x] * b_slice[y];
+        }
+      }
+    }
+    int xbase = xblock * blockDim.x + threadIdx.x;
+    int ybase = yblock * blockDim.y + threadIdx.y;
+    for(int i = 0; i < V; i++) {
+      for(int j = 0; j < V; j++) {
+        int idx_x = (xbase * V + i), idx_y = (ybase * V + j);
+        if (idx_x < M && idx_y < P) {
+          out[idx_x * P + idx_y] = c[i][j];
+        }
+      }
+    }
+  }
+  /// END SOLUTION
+}
 
 void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, uint32_t N,
             uint32_t P) {
@@ -632,7 +718,8 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaTwoDim(M, P);
+  MatmulKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, M, N, P);
   /// END SOLUTION
 }
 
@@ -791,7 +878,7 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
   m.def("ewise_exp", EwiseExp);
   m.def("ewise_tanh", EwiseTanh);
 
-  // m.def("matmul", Matmul);
+  m.def("matmul", Matmul);
 
   m.def("reduce_max", ReduceMax);
   m.def("reduce_sum", ReduceSum);
