@@ -62,7 +62,32 @@ void Compact(const AlignedArray& a, AlignedArray* out, std::vector<int32_t> shap
    *  function will implement here, so we won't repeat this note.)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  std::vector<int32_t> indices;
+  // printf("shape: ");
+  int dim = shape.size();
+  // NOTE: the idx can't be size_t
+  for(int i = 0; i < dim;i ++){
+    indices.push_back(0);
+  }
+  // NOTE: the true size can larger than a.size
+  int32_t idx = 0, cnt=0;
+  while(true){
+    idx = offset;
+    for(int i = 0; i < shape.size(); i ++){
+      idx += indices[i] * strides[i];
+    }
+    out->ptr[cnt++] = a.ptr[idx];
+    indices[dim - 1] ++;
+    for(int i = dim - 1; i >= 0; i --){
+      if(indices[i] >= shape[i]){
+        indices[i] = 0;
+        if(i == 0){
+          return;
+        }
+        indices[i - 1] ++;
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -79,7 +104,33 @@ void EwiseSetitem(const AlignedArray& a, AlignedArray* out, std::vector<int32_t>
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  std::vector<int32_t> indices;
+  // printf("shape: ");
+  int dim = shape.size();
+  // NOTE: the idx can't be size_t
+  for(int i = 0; i < dim;i ++){
+    indices.push_back(0);
+  }
+  // NOTE: the true size can larger than a.size
+  int32_t idx = 0, cnt=0;
+  while(true){
+    idx = offset;
+    for(int i = 0; i < shape.size(); i ++){
+      idx += indices[i] * strides[i];
+    }
+    // out->ptr[cnt++] = a.ptr[idx];
+    out->ptr[idx] = a.ptr[cnt++];
+    indices[dim - 1] ++;
+    for(int i = dim - 1; i >= 0; i --){
+      if(indices[i] >= shape[i]){
+        indices[i] = 0;
+        if(i == 0){
+          return;
+        }
+        indices[i - 1] ++;
+      }
+    }
+  }
   /// END SOLUTION
 }
 
@@ -100,7 +151,27 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray* out, std::vect
    */
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  std::vector<int32_t> indices;
+  for(int i = 0; i < shape.size();i ++){
+    indices.push_back(0);
+  }
+  for(int t = 0; t < size; t ++){
+    int32_t idx = offset;
+    for(int i = 0; i < shape.size(); i ++){
+      idx += indices[i] * strides[i];
+    }
+    out->ptr[idx] = val;
+    indices[shape.size() - 1] ++;
+    for(int i = shape.size() - 1; i >= 0; i --){
+      if(indices[i] >= shape[i]){
+        indices[i] = 0;
+        if(i == 0){
+          return;
+        }
+        indices[i - 1] ++;
+      }
+    }
+  }
   /// END SOLUTION
 }
 
