@@ -640,6 +640,32 @@ void Matmul(const CudaArray& a, const CudaArray& b, CudaArray* out, uint32_t M, 
 // Max and sum reductions
 ////////////////////////////////////////////////////////////////////////////////
 
+__global__ void ReduceMaxKernel(const scalar_t* a, scalar_t* out, size_t reduce_size,
+                                 size_t size) {
+  /**
+   * The CUDA kernel for the reduction operation.  This should effectively map a single entry in the 
+   * non-compact input a, to the corresponding item (at location gid) in the compact array out.
+   * 
+   * Args:
+   *   a: CUDA pointer to a array
+   *   out: CUDA point to out array
+   *   reduce_size: size of the dimension to reduce over
+   *   size: size of out array
+   */
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  /// BEGIN SOLUTION
+  if (gid < size) {
+    // Calculate the index in the non-compact array a
+    size_t a_index = gid * reduce_size;
+    float max_val = a[gid * reduce_size];
+    for(int i = 1; i < reduce_size; i++) {
+      max_val = fmax(max_val, a[a_index + i]);
+    }
+    out[gid] = max_val;
+  }
+  /// END SOLUTION
+}
 
 void ReduceMax(const CudaArray& a, CudaArray* out, size_t reduce_size) {
   /**
@@ -652,11 +678,37 @@ void ReduceMax(const CudaArray& a, CudaArray* out, size_t reduce_size) {
    *   redice_size: size of the dimension to reduce over
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaOneDim(out->size);
+  ReduceMaxKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, reduce_size, out->size);
   /// END SOLUTION
 }
 
+__global__ void ReduceSumKernel(const scalar_t* a, scalar_t* out, size_t reduce_size,
+                                 size_t size) {
+  /**
+   * The CUDA kernel for the reduction operation.  This should effectively map a single entry in the 
+   * non-compact input a, to the corresponding item (at location gid) in the compact array out.
+   * 
+   * Args:
+   *   a: CUDA pointer to a array
+   *   out: CUDA point to out array
+   *   reduce_size: size of the dimension to reduce over
+   *   size: size of out array
+   */
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
 
+  /// BEGIN SOLUTION
+  if (gid < size) {
+    // Calculate the index in the non-compact array a
+    size_t a_index = gid * reduce_size;
+    float sum_val = 0.0f;
+    for(int i = 0; i < reduce_size; i++) {
+      sum_val += a[a_index + i];
+    }
+    out[gid] = sum_val;
+  }
+  /// END SOLUTION
+}
 
 void ReduceSum(const CudaArray& a, CudaArray* out, size_t reduce_size) {
   /**
@@ -669,7 +721,8 @@ void ReduceSum(const CudaArray& a, CudaArray* out, size_t reduce_size) {
    *   redice_size: size of the dimension to reduce over
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaOneDim(out->size);
+  ReduceSumKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, reduce_size, out->size);
   /// END SOLUTION
 }
 
@@ -740,6 +793,6 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
 
   // m.def("matmul", Matmul);
 
-  // m.def("reduce_max", ReduceMax);
-  // m.def("reduce_sum", ReduceSum);
+  m.def("reduce_max", ReduceMax);
+  m.def("reduce_sum", ReduceSum);
 }
