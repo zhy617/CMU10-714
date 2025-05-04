@@ -98,7 +98,17 @@ __global__ void CompactKernel(const scalar_t* a, scalar_t* out, size_t size, Cud
   size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
 
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  if (gid < size) {
+    // Calculate the index in the non-compact array a
+    size_t a_index = offset;
+    size_t gpu_id = gid;
+    for(int i = shape.size - 1; i >= 0; i--) {
+      size_t dim_index = gpu_id % shape.data[i];
+      gpu_id /= shape.data[i];
+      a_index += dim_index * strides.data[i];
+    }
+    out[gid] = a[a_index];
+  }
   /// END SOLUTION
 }
 
@@ -126,6 +136,36 @@ void Compact(const CudaArray& a, CudaArray* out, std::vector<int32_t> shape,
 }
 
 
+__global__ void EwiseSetitemKernel(const scalar_t* a, scalar_t* out, size_t size,
+                                   CudaVec shape, CudaVec strides, size_t offset) {
+  /**
+   * The CUDA kernel for the setitem operation.  This should effectively map a single entry in the 
+   * compact input a, to the corresponding item (at location gid) in the non-compact array out.
+   * 
+   * Args:
+   *   a: CUDA pointer to a array
+   *   out: CUDA point to out array
+   *   size: size of out array
+   *   shape: vector of shapes of a and out arrays (of type CudaVec, for past passing to CUDA kernel)
+   *   strides: vector of strides of *out* array
+   *   offset: offset of *out* array
+   */
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  /// BEGIN SOLUTION
+  if (gid < size) {
+    // Calculate the index in the non-compact array out
+    size_t out_index = offset;
+    size_t gpu_id = gid;
+    for(int i = shape.size - 1; i >= 0; i--) {
+      size_t dim_index = gpu_id % shape.data[i];
+      gpu_id /= shape.data[i];
+      out_index += dim_index * strides.data[i];
+    }
+    out[out_index] = a[gid];
+  }
+  /// END SOLUTION
+}
 
 void EwiseSetitem(const CudaArray& a, CudaArray* out, std::vector<int32_t> shape,
                   std::vector<int32_t> strides, size_t offset) {
@@ -141,10 +181,42 @@ void EwiseSetitem(const CudaArray& a, CudaArray* out, std::vector<int32_t> shape
    *   offset: offset of the *out* array (not a, which has zero offset, being compact)
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaOneDim(a.size);
+  EwiseSetitemKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, a.size, VecToCuda(shape),
+                                              VecToCuda(strides), offset);
   /// END SOLUTION
 }
 
+__global__ void ScalarSetitemKernel(scalar_t val, scalar_t* out, size_t size, CudaVec shape,
+                                     CudaVec strides, size_t offset) {
+  /**
+   * The CUDA kernel for the setitem operation.  This should effectively map a single entry in the 
+   * compact input a, to the corresponding item (at location gid) in the non-compact array out.
+   * 
+   * Args:
+   *   val: scalar value to write to
+   *   out: CUDA point to out array
+   *   size: size of out array
+   *   shape: vector of shapes of a and out arrays (of type CudaVec, for past passing to CUDA kernel)
+   *   strides: vector of strides of *out* array
+   *   offset: offset of *out* array
+   */
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+
+  /// BEGIN SOLUTION
+  if (gid < size) {
+    // Calculate the index in the non-compact array out
+    size_t out_index = offset;
+    size_t gpu_id = gid;
+    for(int i = shape.size - 1; i >= 0; i--) {
+      size_t dim_index = gpu_id % shape.data[i];
+      gpu_id /= shape.data[i];
+      out_index += dim_index * strides.data[i];
+    }
+    out[out_index] = val;
+  }
+  /// END SOLUTION
+}
 
 
 void ScalarSetitem(size_t size, scalar_t val, CudaArray* out, std::vector<int32_t> shape,
@@ -163,7 +235,9 @@ void ScalarSetitem(size_t size, scalar_t val, CudaArray* out, std::vector<int32_
    *   offset: offset of the out array
    */
   /// BEGIN SOLUTION
-  assert(false && "Not Implemented");
+  CudaDims dim = CudaOneDim(size);
+  ScalarSetitemKernel<<<dim.grid, dim.block>>>(val, out->ptr, size, VecToCuda(shape),
+                                               VecToCuda(strides), offset);
   /// END SOLUTION
 }
 
@@ -211,6 +285,300 @@ void ScalarAdd(const CudaArray& a, scalar_t val, CudaArray* out) {
   // Launch the ScalarAddKernel that will add the scalar 'val' to each element of array 'a', 
   // and store the result in array 'out'.
   ScalarAddKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+__global__ void EwiseMulKernel(const scalar_t* a, const scalar_t* b,
+                               scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = a[gid] * b[gid];
+}
+
+void EwiseMul(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  /**
+   * Multiply two CUDA arrays elementwise.
+   * Args:
+   *   a: Input array 'a' to be multiplied
+   *   b: Input array 'b' to be multiplied
+   *   out: Output array to store the result of 'a * b'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseMulKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+__global__ void ScalarMulKernel(const scalar_t* a, scalar_t val,
+                               scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = a[gid] * val;
+}
+
+void ScalarMul(const CudaArray& a, scalar_t val, CudaArray* out) {
+  /**
+   * Multiply a CUDA array by a scalar value.
+   * Args:
+   *   a: Input array 'a'
+   *   val: Scalar value to be multiplied
+   *   out: Output array to store the result of 'a * val'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Launch the ScalarMulKernel that will multiply each element of array 'a' by the scalar 'val', 
+  // and store the result in array 'out'.
+  ScalarMulKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+__global__ void EwiseDivKernel(const scalar_t* a, const scalar_t* b,
+                               scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = a[gid] / b[gid];
+}
+
+void EwiseDiv(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  /**
+   * Divide two CUDA arrays elementwise.
+   * Args:
+   *   a: Input array 'a' to be divided
+   *   b: Input array 'b' to be divided
+   *   out: Output array to store the result of 'a / b'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseDivKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+__global__ void ScalarDivKernel(const scalar_t* a, scalar_t val,
+                               scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = a[gid] / val;
+}
+
+void ScalarDiv(const CudaArray& a, scalar_t val, CudaArray* out) {
+  /**
+   * Divide a CUDA array by a scalar value.
+   * Args:
+   *   a: Input array 'a'
+   *   val: Scalar value to be divided
+   *   out: Output array to store the result of 'a / val'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Launch the ScalarDivKernel that will divide each element of array 'a' by the scalar 'val', 
+  // and store the result in array 'out'.
+  ScalarDivKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+__global__ void ScalarPowerKernel(const scalar_t* a, scalar_t val,
+                                   scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = pow(a[gid], val);
+}
+
+void ScalarPower(const CudaArray& a, scalar_t val, CudaArray* out) {
+  /**
+   * Raise each element of a CUDA array to the power of a scalar value.
+   * Args:
+   *   a: Input array 'a'
+   *   val: Scalar value to be raised to
+   *   out: Output array to store the result of 'a ^ val'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Launch the ScalarPowerKernel that will raise each element of array 'a' to the power of 
+  // the scalar 'val', and store the result in array 'out'.
+  ScalarPowerKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+__global__ void EwiseMaximumKernel(const scalar_t* a, const scalar_t* b,
+                                    scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = fmax(a[gid], b[gid]);
+}
+
+void EwiseMaximum(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  /**
+   * Take the maximum of two CUDA arrays elementwise.
+   * Args:
+   *   a: Input array 'a'
+   *   b: Input array 'b'
+   *   out: Output array to store the result of 'max(a, b)'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseMaximumKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+__global__ void ScalarMaximumKernel(const scalar_t* a, scalar_t val,
+                                      scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = fmax(a[gid], val);
+}
+
+void ScalarMaximum(const CudaArray& a, scalar_t val, CudaArray* out) {
+  /**
+   * Take the maximum of a CUDA array and a scalar value.
+   * Args:
+   *   a: Input array 'a'
+   *   val: Scalar value to be compared
+   *   out: Output array to store the result of 'max(a, val)'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Launch the ScalarMaximumKernel that will take the maximum of each element of array 'a' 
+  // and the scalar 'val', and store the result in array 'out'.
+  ScalarMaximumKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+__global__ void EwiseEqKernel(const scalar_t* a, const scalar_t* b,
+                               scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = (a[gid] == b[gid]) ? 1.0f : 0.0f;
+}
+
+void EwiseEq(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  /**
+   * Compare two CUDA arrays elementwise for equality.
+   * Args:
+   *   a: Input array 'a'
+   *   b: Input array 'b'
+   *   out: Output array to store the result of 'a == b'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseEqKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+__global__ void ScalarEqKernel(const scalar_t* a, scalar_t val,
+                                 scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = (a[gid] == val) ? 1.0f : 0.0f;
+}
+
+void ScalarEq(const CudaArray& a, scalar_t val, CudaArray* out) {
+  /**
+   * Compare a CUDA array with a scalar value for equality.
+   * Args:
+   *   a: Input array 'a'
+   *   val: Scalar value to be compared
+   *   out: Output array to store the result of 'a == val'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Launch the ScalarEqKernel that will compare each element of array 'a' with the scalar 
+  // 'val', and store the result in array 'out'.
+  ScalarEqKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+__global__ void EwiseGeKernel(const scalar_t* a, const scalar_t* b,
+                               scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = (a[gid] >= b[gid]) ? 1.0f : 0.0f;
+}
+
+void EwiseGe(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  /**
+   * Compare two CUDA arrays elementwise for greater than or equal to.
+   * Args:
+   *   a: Input array 'a'
+   *   b: Input array 'b'
+   *   out: Output array to store the result of 'a >= b'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseGeKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size);
+}
+
+__global__ void ScalarGeKernel(const scalar_t* a, scalar_t val,
+                                 scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = (a[gid] >= val) ? 1.0f : 0.0f;
+}
+
+void ScalarGe(const CudaArray& a, scalar_t val, CudaArray* out) {
+  /**
+   * Compare a CUDA array with a scalar value for greater than or equal to.
+   * Args:
+   *   a: Input array 'a'
+   *   val: Scalar value to be compared
+   *   out: Output array to store the result of 'a >= val'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Launch the ScalarGeKernel that will compare each element of array 'a' with the scalar 
+  // 'val', and store the result in array 'out'.
+  ScalarGeKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size);
+}
+
+__global__ void EwiseLogKernel(const scalar_t* a, scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = log(a[gid]);
+}
+
+void EwiseLog(const CudaArray& a, CudaArray* out) {
+  /**
+   * Take the natural logarithm of each element in a CUDA array.
+   * Args:
+   *   a: Input array 'a'
+   *   out: Output array to store the result of 'log(a)'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseLogKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size);
+}
+
+__global__ void EwiseExpKernel(const scalar_t* a, scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = exp(a[gid]);
+}
+
+void EwiseExp(const CudaArray& a, CudaArray* out) {
+  /**
+   * Take the exponential of each element in a CUDA array.
+   * Args:
+   *   a: Input array 'a'
+   *   out: Output array to store the result of 'exp(a)'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseExpKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size);
+}
+
+__global__ void EwiseTanhKernel(const scalar_t* a, scalar_t* out, size_t size) {
+  // Calculate the global index of the thread.
+  size_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (gid < size) out[gid] = tanh(a[gid]);
+}
+
+void EwiseTanh(const CudaArray& a, CudaArray* out) {
+  /**
+   * Take the hyperbolic tangent of each element in a CUDA array.
+   * Args:
+   *   a: Input array 'a'
+   *   out: Output array to store the result of 'tanh(a)'
+   */
+  CudaDims dim = CudaOneDim(out->size);
+
+  // Kernel will execute on 'dim.grid' blocks, each containing 'dim.block' threads.
+  EwiseTanhKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size);
 }
 
 /**
@@ -353,22 +721,22 @@ PYBIND11_MODULE(ndarray_backend_cuda, m) {
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
 
-  // m.def("ewise_mul", EwiseMul);
-  // m.def("scalar_mul", ScalarMul);
-  // m.def("ewise_div", EwiseDiv);
-  // m.def("scalar_div", ScalarDiv);
-  // m.def("scalar_power", ScalarPower);
+  m.def("ewise_mul", EwiseMul);
+  m.def("scalar_mul", ScalarMul);
+  m.def("ewise_div", EwiseDiv);
+  m.def("scalar_div", ScalarDiv);
+  m.def("scalar_power", ScalarPower);
 
-  // m.def("ewise_maximum", EwiseMaximum);
-  // m.def("scalar_maximum", ScalarMaximum);
-  // m.def("ewise_eq", EwiseEq);
-  // m.def("scalar_eq", ScalarEq);
-  // m.def("ewise_ge", EwiseGe);
-  // m.def("scalar_ge", ScalarGe);
+  m.def("ewise_maximum", EwiseMaximum);
+  m.def("scalar_maximum", ScalarMaximum);
+  m.def("ewise_eq", EwiseEq);
+  m.def("scalar_eq", ScalarEq);
+  m.def("ewise_ge", EwiseGe);
+  m.def("scalar_ge", ScalarGe);
 
-  // m.def("ewise_log", EwiseLog);
-  // m.def("ewise_exp", EwiseExp);
-  // m.def("ewise_tanh", EwiseTanh);
+  m.def("ewise_log", EwiseLog);
+  m.def("ewise_exp", EwiseExp);
+  m.def("ewise_tanh", EwiseTanh);
 
   // m.def("matmul", Matmul);
 
